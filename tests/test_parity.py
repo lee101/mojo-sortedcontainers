@@ -117,6 +117,25 @@ def test_native_merge_all_short_simd_tails(dtype, symbol):
             np.testing.assert_array_equal(result, np.sort(np.concatenate((left, right))))
 
 
+@pytest.mark.parametrize(
+    "dtype,symbol",
+    [(np.int64, "msc_merge_i64"), (np.float64, "msc_merge_f64")],
+)
+def test_native_merge_full_simd_runs_and_tail(dtype, symbol):
+    left = np.arange(37, dtype=dtype)
+    right = np.arange(100, 129, dtype=dtype)
+    result = np.empty(len(left) + len(right), dtype=dtype)
+    status = getattr(_lib.lib(), symbol)(
+        _lib.addr(left, dtype),
+        len(left),
+        _lib.addr(right, dtype),
+        len(right),
+        _lib.addr(result, dtype, writable=True),
+    )
+    assert status == 0
+    np.testing.assert_array_equal(result, np.concatenate((left, right)))
+
+
 def test_native_exports_reject_invalid_lengths_and_null_buffers():
     native = _lib.lib()
     assert native.msc_sort_i64(None, -1, None) != 0
@@ -141,6 +160,27 @@ def test_native_merge_simd_tail_matches_upstream(left, incoming):
     ours.update(incoming)
     ref.update(incoming)
     assert list(ours) == list(ref)
+
+
+def test_native_update_keeps_sorted_incoming_buffer_native(monkeypatch):
+    values = list(range(3_000))
+    incoming = list(range(2_999, -1, -1))
+    real_merge = __import__(
+        "mojo_sortedcontainers.sortedlist", fromlist=["merge_numeric"]
+    ).merge_numeric
+    seen = []
+
+    def checked_merge(left, right, kind):
+        seen.append(isinstance(right, np.ndarray))
+        return real_merge(left, right, kind)
+
+    monkeypatch.setattr(
+        "mojo_sortedcontainers.sortedlist.merge_numeric", checked_merge
+    )
+    ours = SortedList(values)
+    ours.update(incoming)
+    assert seen == [True]
+    assert list(ours) == list(RefSortedList(values + incoming))
 
 
 def test_numeric_edge_cases_fall_back_without_losing_python_semantics():

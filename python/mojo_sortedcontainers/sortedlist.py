@@ -10,7 +10,7 @@ from ._lib import bisect_many_numeric, merge_numeric, sort_numeric
 
 _NATIVE_THRESHOLD = 2048
 _BLOCK_THRESHOLD = 4096
-_BLOCK_LOAD = 1024
+_BLOCK_LOAD = 512
 
 
 def identity(value):
@@ -197,11 +197,11 @@ class SortedList(MutableSequence):
         if not incoming:
             return
         if len(incoming) >= _NATIVE_THRESHOLD:
-            native = sort_numeric(incoming)
+            native = sort_numeric(incoming, as_array=True)
             if native is not None:
                 ordered, kind = native
                 if not self._values:
-                    self._values = ordered
+                    self._values = ordered.tolist()
                     self._native_kind = kind
                     return
                 safe_left = kind == self._native_kind or (

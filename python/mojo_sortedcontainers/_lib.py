@@ -14,7 +14,7 @@ LIB = os.environ.get("MOJO_SORTEDCONTAINERS_LIB") or os.path.join(
 )
 I = ctypes.c_int64
 P = ctypes.c_void_p
-_PARALLEL_SORT_THRESHOLD = 4_194_304
+_PARALLEL_SORT_THRESHOLD = 131_072
 
 _SIGNATURES = {
     "msc_sort_i64": ([P, I, P], I),
@@ -77,7 +77,7 @@ def _all_i64(values) -> bool:
     return min(values) >= -(1 << 63) and max(values) < (1 << 63)
 
 
-def sort_numeric(values: list) -> tuple[list, str] | None:
+def sort_numeric(values: list, *, as_array=False) -> tuple[list | np.ndarray, str] | None:
     """Sort exact homogeneous int/float values in Mojo, or decline safely."""
     if not values:
         return [], "i64"
@@ -87,7 +87,7 @@ def sort_numeric(values: list) -> tuple[list, str] | None:
         scratch = np.empty_like(array) if len(array) >= _PARALLEL_SORT_THRESHOLD else None
         _call(lib().msc_sort_i64, addr(array, np.int64, writable=True), len(array),
               None if scratch is None else addr(scratch, np.int64, writable=True))
-        return array.tolist(), "i64"
+        return (array if as_array else array.tolist()), "i64"
     if kind is float and all(type(value) is float for value in values):
         array = np.asarray(values, dtype=np.float64)
         if np.isnan(array).any():
@@ -98,7 +98,7 @@ def sort_numeric(values: list) -> tuple[list, str] | None:
         scratch = np.empty_like(array) if len(array) >= _PARALLEL_SORT_THRESHOLD else None
         _call(lib().msc_sort_f64, addr(array, np.float64, writable=True), len(array),
               None if scratch is None else addr(scratch, np.float64, writable=True))
-        return array.tolist(), "f64"
+        return (array if as_array else array.tolist()), "f64"
     return None
 
 

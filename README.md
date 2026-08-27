@@ -76,12 +76,12 @@ lower is better.
 
 | case | mojo-sortedcontainers | sortedcontainers | relative |
 | --- | ---: | ---: | ---: |
-| SortedList build, 400k ints | 105.0 ms | 113.7 ms | 1.08x faster |
-| SortedList build + update, 300k + 200k | 180.4 ms | 241.1 ms | 1.34x faster |
-| 100k lower bounds in 400k values | 123.2 ms | 276.8 ms | 2.25x faster |
-| SortedList build + 5k adds | 135.8 ms | 247.3 ms | 1.82x faster |
-| SortedDict build + ordered iteration, 150k | 154.1 ms | 187.1 ms | 1.21x faster |
-| SortedSet union, 300k + 200k | 353.9 ms | 366.7 ms | 1.04x faster |
+| SortedList build, 400k ints | 96.2 ms | 142.6 ms | 1.48x faster |
+| SortedList build + update, 300k + 200k | 145.7 ms | 182.6 ms | 1.25x faster |
+| 100k lower bounds in 400k values | 85.2 ms | 189.1 ms | 2.22x faster |
+| SortedList build + 5k adds | 106.7 ms | 127.8 ms | 1.20x faster |
+| SortedDict build + ordered iteration, 150k | 88.4 ms | 100.3 ms | 1.14x faster |
+| SortedSet union, 300k + 200k | 283.9 ms | 322.7 ms | 1.14x faster |
 
 There is no GPU path. Sorting, merging, and binary search are comparison- and
 memory-bound, with too little arithmetic per byte moved to justify device
@@ -95,10 +95,12 @@ arrays with an exact native dtype. The wrapper validates dtype, shape, stride,
 writeability, and non-null addresses before each call and keeps every array
 referenced until the call returns. The single Mojo compilation unit reconstructs
 `UnsafePointer[..., AnyOrigin[mut=True]]` values and performs in-place span
-sorting, SIMD remainder copies during linear merges, or a batch of binary
-searches. Exports reject invalid lengths and required null pointers; the Python
-wrapper turns a nonzero status into an exception. Large sorts use bounded CPU
-workers and a NumPy-owned scratch buffer. No Mojo allocation crosses the ABI.
+sorting, SIMD full-run and remainder copies during linear merges, or a batch of
+binary searches. Exports reject invalid lengths and required null pointers; the
+Python wrapper turns a nonzero status into an exception. Large sorts use four
+bounded CPU workers above a measured size threshold and a NumPy-owned scratch
+buffer. Sorted incoming update buffers stay in NumPy through the merge instead
+of round-tripping through a Python list. No Mojo allocation crosses the ABI.
 
 Large repeated insertions use the block index so each operation moves a small
 block rather than the entire Python list. Set union sorts the already
