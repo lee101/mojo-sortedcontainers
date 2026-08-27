@@ -4,7 +4,6 @@ Python owns every buffer. The exported functions only sort, merge, or search
 contiguous int64 and float64 arrays supplied by the wrapper.
 """
 
-from std.algorithm import parallelize
 from std.sys import simd_width_of
 
 comptime IPtr = UnsafePointer[Int64, AnyOrigin[mut=True]]
@@ -83,59 +82,45 @@ def merge_f64(a: FPtr, na: Int, b: FPtr, nb: Int, dst: FPtr):
 
 def parallel_sort_i64(values: IPtr, n: Int, scratch: IPtr):
     comptime TASKS = 4
-
-    @parameter
-    def sort_chunk(task: Int):
+    for task in range(TASKS):
         var start = task * n // TASKS
         var end = (task + 1) * n // TASKS
         sort_i64(values + start, end - start)
-
-    parallelize[sort_chunk](TASKS, TASKS)
     var middle = n // 2
-
-    @parameter
-    def merge_pair(task: Int):
-        if task == 0:
-            var split = n // TASKS
-            merge_i64(values, split, values + split, middle - split, scratch)
-        else:
-            var split = 3 * n // TASKS
-            merge_i64(
-                values + middle, split - middle,
-                values + split, n - split,
-                scratch + middle,
-            )
-
-    parallelize[merge_pair](2, 2)
+    var first_split = n // TASKS
+    merge_i64(
+        values, first_split,
+        values + first_split, middle - first_split,
+        scratch,
+    )
+    var second_split = 3 * n // TASKS
+    merge_i64(
+        values + middle, second_split - middle,
+        values + second_split, n - second_split,
+        scratch + middle,
+    )
     merge_i64(scratch, middle, scratch + middle, n - middle, values)
 
 
 def parallel_sort_f64(values: FPtr, n: Int, scratch: FPtr):
     comptime TASKS = 4
-
-    @parameter
-    def sort_chunk(task: Int):
+    for task in range(TASKS):
         var start = task * n // TASKS
         var end = (task + 1) * n // TASKS
         sort_f64(values + start, end - start)
-
-    parallelize[sort_chunk](TASKS, TASKS)
     var middle = n // 2
-
-    @parameter
-    def merge_pair(task: Int):
-        if task == 0:
-            var split = n // TASKS
-            merge_f64(values, split, values + split, middle - split, scratch)
-        else:
-            var split = 3 * n // TASKS
-            merge_f64(
-                values + middle, split - middle,
-                values + split, n - split,
-                scratch + middle,
-            )
-
-    parallelize[merge_pair](2, 2)
+    var first_split = n // TASKS
+    merge_f64(
+        values, first_split,
+        values + first_split, middle - first_split,
+        scratch,
+    )
+    var second_split = 3 * n // TASKS
+    merge_f64(
+        values + middle, second_split - middle,
+        values + second_split, n - second_split,
+        scratch + middle,
+    )
     merge_f64(scratch, middle, scratch + middle, n - middle, values)
 
 
