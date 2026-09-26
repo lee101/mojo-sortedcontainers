@@ -14,11 +14,10 @@ LIB = os.environ.get("MOJO_SORTEDCONTAINERS_LIB") or os.path.join(
 )
 I = ctypes.c_int64
 P = ctypes.c_void_p
-_PARALLEL_SORT_THRESHOLD = 131_072
 
 _SIGNATURES = {
-    "msc_sort_i64": ([P, I, P], I),
-    "msc_sort_f64": ([P, I, P], I),
+    "msc_sort_i64": ([P, I], I),
+    "msc_sort_f64": ([P, I], I),
     "msc_merge_i64": ([P, I, P, I, P], I),
     "msc_merge_f64": ([P, I, P, I, P], I),
     "msc_bisect_i64": ([P, I, P, I, P, I], I),
@@ -84,9 +83,7 @@ def sort_numeric(values: list, *, as_array=False) -> tuple[list | np.ndarray, st
     kind = type(values[0])
     if kind is int and _all_i64(values):
         array = np.asarray(values, dtype=np.int64)
-        scratch = np.empty_like(array) if len(array) >= _PARALLEL_SORT_THRESHOLD else None
-        _call(lib().msc_sort_i64, addr(array, np.int64, writable=True), len(array),
-              None if scratch is None else addr(scratch, np.int64, writable=True))
+        _call(lib().msc_sort_i64, addr(array, np.int64, writable=True), len(array))
         return (array if as_array else array.tolist()), "i64"
     if kind is float and all(type(value) is float for value in values):
         array = np.asarray(values, dtype=np.float64)
@@ -95,9 +92,7 @@ def sort_numeric(values: list, *, as_array=False) -> tuple[list | np.ndarray, st
         zeros = array == 0.0
         if zeros.any() and np.unique(np.signbit(array[zeros])).size > 1:
             return None
-        scratch = np.empty_like(array) if len(array) >= _PARALLEL_SORT_THRESHOLD else None
-        _call(lib().msc_sort_f64, addr(array, np.float64, writable=True), len(array),
-              None if scratch is None else addr(scratch, np.float64, writable=True))
+        _call(lib().msc_sort_f64, addr(array, np.float64, writable=True), len(array))
         return (array if as_array else array.tolist()), "f64"
     return None
 

@@ -97,9 +97,13 @@ referenced until the call returns. The single Mojo compilation unit reconstructs
 `UnsafePointer[..., AnyOrigin[mut=True]]` values and performs in-place span
 sorting, SIMD full-run and remainder copies during linear merges, or a batch of
 binary searches. Exports reject invalid lengths and required null pointers; the
-Python wrapper turns a nonzero status into an exception. Large sorts use four
-bounded CPU workers above a measured size threshold and a NumPy-owned scratch
-buffer. Sorted incoming update buffers stay in NumPy through the merge instead
+Python wrapper turns a nonzero status into an exception. Sorting is a single
+in-place span sort of the whole array. Mojo 1.2.0 removed
+`std.runtime.asyncrt`, so the former four-way chunk sort plus merge is gone; a
+sort moves far fewer than two operations per byte, so chunking it across threads
+was bandwidth-bound work with no arithmetic to spare, and the caller no longer
+has to supply a scratch buffer.
+Sorted incoming update buffers stay in NumPy through the merge instead
 of round-tripping through a Python list. No Mojo allocation crosses the ABI.
 
 Large repeated insertions use the block index so each operation moves a small

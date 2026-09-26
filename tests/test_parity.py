@@ -45,34 +45,28 @@ def test_native_integer_and_float_construction_matches_upstream():
 
 
 @pytest.mark.parametrize("dtype, symbol", [(np.int64, "msc_sort_i64"), (np.float64, "msc_sort_f64")])
-def test_parallel_native_sort_handles_uneven_chunks(dtype, symbol):
+def test_native_sort_handles_uneven_length(dtype, symbol):
     rng = np.random.default_rng(11)
     values = rng.integers(-1_000_000, 1_000_000, 262_147).astype(dtype)
     expected = np.sort(values.copy())
-    scratch = np.empty_like(values)
-    assert getattr(_lib.lib(), symbol)(
-        _lib.addr(values),
-        len(values),
-        _lib.addr(scratch),
-    ) == 0
+    assert getattr(_lib.lib(), symbol)(_lib.addr(values), len(values)) == 0
     np.testing.assert_array_equal(values, expected)
 
 
-def test_parallel_sort_threshold_keeps_small_inputs_serial(monkeypatch):
+def test_sort_numeric_passes_the_whole_length_to_the_kernel(monkeypatch):
     calls = []
 
     class FakeLibrary:
         @staticmethod
-        def msc_sort_i64(address, length, scratch):
-            calls.append((length, scratch))
+        def msc_sort_i64(address, length):
+            calls.append((length, address))
             return 0
 
     monkeypatch.setattr(_lib, "_library", FakeLibrary())
-    monkeypatch.setattr(_lib, "_PARALLEL_SORT_THRESHOLD", 8)
     _lib.sort_numeric(list(range(7)))
     _lib.sort_numeric(list(range(9)))
-    assert calls[0] == (7, None)
-    assert calls[1][0] == 9 and calls[1][1] is not None
+    assert [length for length, _ in calls] == [7, 9]
+    assert all(address is not None for _, address in calls)
 
 
 def test_native_buffer_validation_and_kernel_failure_propagation(monkeypatch):
@@ -87,7 +81,7 @@ def test_native_buffer_validation_and_kernel_failure_propagation(monkeypatch):
 
     class RejectingLibrary:
         @staticmethod
-        def msc_sort_i64(address, length, scratch):
+        def msc_sort_i64(address, length):
             return -1
 
     monkeypatch.setattr(_lib, "_library", RejectingLibrary())
@@ -138,11 +132,11 @@ def test_native_merge_full_simd_runs_and_tail(dtype, symbol):
 
 def test_native_exports_reject_invalid_lengths_and_null_buffers():
     native = _lib.lib()
-    assert native.msc_sort_i64(None, -1, None) != 0
-    assert native.msc_sort_i64(None, 1, None) != 0
+    assert native.msc_sort_i64(None, -1) != 0
+    assert native.msc_sort_i64(None, 1) != 0
     assert native.msc_merge_f64(None, 1, None, 0, None) != 0
     assert native.msc_bisect_i64(None, 1, None, 1, None, 0) != 0
-    assert native.msc_sort_i64(None, 0, None) == 0
+    assert native.msc_sort_i64(None, 0) == 0
 
 
 @pytest.mark.parametrize(
