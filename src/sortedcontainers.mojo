@@ -26,7 +26,7 @@ def copy_i64(src: IPtr, src_pos: Int, count: Int, dst: IPtr, dst_pos: Int):
     comptime W = simd_width_of[DType.float64]()
     var i = 0
     while i + W <= count:
-        var values = src.load[width=W](src_pos + i)
+        var values = src.unsafe_load[width=W](src_pos + i)
         dst.store(dst_pos + i, values)
         i += W
     while i < count:
@@ -38,7 +38,7 @@ def copy_f64(src: FPtr, src_pos: Int, count: Int, dst: FPtr, dst_pos: Int):
     comptime W = simd_width_of[DType.float64]()
     var i = 0
     while i + W <= count:
-        var values = src.load[width=W](src_pos + i)
+        var values = src.unsafe_load[width=W](src_pos + i)
         dst.store(dst_pos + i, values)
         i += W
     while i < count:
@@ -53,12 +53,12 @@ def merge_i64(a: IPtr, na: Int, b: IPtr, nb: Int, dst: IPtr):
     var k = 0
     while i < na and j < nb:
         if i + W <= na and a[i + W - 1] <= b[j]:
-            dst.store(k, a.load[width=W](i))
+            dst.store(k, a.unsafe_load[width=W](i))
             i += W
             k += W
             continue
         if j + W <= nb and b[j + W - 1] < a[i]:
-            dst.store(k, b.load[width=W](j))
+            dst.store(k, b.unsafe_load[width=W](j))
             j += W
             k += W
             continue
@@ -81,12 +81,12 @@ def merge_f64(a: FPtr, na: Int, b: FPtr, nb: Int, dst: FPtr):
     var k = 0
     while i < na and j < nb:
         if i + W <= na and a[i + W - 1] <= b[j]:
-            dst.store(k, a.load[width=W](i))
+            dst.store(k, a.unsafe_load[width=W](i))
             i += W
             k += W
             continue
         if j + W <= nb and b[j + W - 1] < a[i]:
-            dst.store(k, b.load[width=W](j))
+            dst.store(k, b.unsafe_load[width=W](j))
             j += W
             k += W
             continue
